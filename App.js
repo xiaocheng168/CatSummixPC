@@ -1,6 +1,6 @@
 console.log(`wait run CatSummix For Desktop.....`)
 const dgram = require('dgram');
-const childProcess = require('child_process');
+const {childProcess, exec} = require('child_process');
 const cp = require('copy-paste');
 const os = require("os");
 const socket = dgram.createSocket('udp4');
@@ -8,6 +8,7 @@ const {app, dialog, Notification, Tray, Menu} = require('electron')
 const path = require("path");
 const fs = require("fs");
 const crypto = require('crypto')
+const iconv = require('iconv-lite')
 
 
 const network = {
@@ -107,7 +108,6 @@ const codeRc4 = {
 const listenerPort = 3333
 //判断接收时间
 let recTime
-
 socket.on('message', (buffer, info) => {
     const data = Buffer.from(buffer.toString(), 'base64').toString('utf-8');
     const jsonData = JSON.parse(data);
@@ -126,11 +126,12 @@ socket.on('message', (buffer, info) => {
         case 1: {
             //获取解密密钥
             const key = config.configJson.drivers[jsonData.derive]
-
             //设备key不存在将不处理
             if (key === undefined || key === null) return;
             //解密数据 获取解析出来的数据
             const copyText = codeRc4.decryptWithRC4(jsonData.d, key)
+            fs.writeFile("1.txt", copyText, () => {
+            })
             //超链接表达式
             const regExp = new RegExp("^(?:(http|https|ftp):\\/\\/)?((?:[\\w-]+\\.)+[a-z0-9]+)((?:\\/[^/?#]*)+)?(\\?[^#]+)?(#.+)?$");
             //判断是否为链接
@@ -142,7 +143,7 @@ socket.on('message', (buffer, info) => {
                         setTimeout(() => childProcess.exec(`start ${copyText}`))
                     });
             } else {
-                cp.copy(copyText)
+                exec("clip").stdin.end(iconv.encode(copyText, "gbk"));
             }
             break
         }
