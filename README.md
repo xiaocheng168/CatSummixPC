@@ -4,7 +4,7 @@
     <hr>
 </div>
 
-## How to build this project？
+## How to build this project？🐟
 
 ~~~ shell
 npm install
@@ -14,14 +14,17 @@ npm install
 npm run pkgApp
 ~~~
 
-## Test project
+## Test project ✈️
 
 ~~~ shell
 npm run start
 ~~~
 
-## Support System
+## Support Systems ⭐
+    ✅ Windows 
+    ❌ Linux 
+    ❌ Macos 
 
-    ✔️ Windows ⭐
 
 #### Project icon from the <a href="https://www.pixiv.net/artworks/92923145">pixiv<a/>
+#### kokomi ✈️!!!
