@@ -1,5 +1,5 @@
 <p align="center" style="font-size: 30px;font-weight: bold">CatSummixPC</p>
-<img src="application.ico" alt="Logo" align="center">
+<img src="application.ico" alt="Logo" style="margin: 0 auto">
 
 
 ### how to build this project？
