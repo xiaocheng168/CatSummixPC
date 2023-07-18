@@ -28,4 +28,6 @@ npm run start
 
 #### Project icon from the <a target=”_blank“ href="https://www.pixiv.net/artworks/92923145">pixiv<a/>
 
+### Now download <a href="https://github.com/xiaocheng168/CatSummixPC/releases">releases</a> 🫲
+
 #### kokomi ✈️!!!
