@@ -1,9 +1,7 @@
 <div align="center">
     <img width="200" height="200" src="application.ico" alt="Logo" style="margin: 0 auto">
-
-# CatSummixPC
-
-<hr>
+    <span style="display: block;font-size: 30px;font-weight: bold">CatSummixPC</span>
+    <hr>
 </div>
 
 ## 🪼 How to build this project🪸
