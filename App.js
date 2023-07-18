@@ -38,17 +38,12 @@ socket.on('message', (buffer, info) => {
             const regExp = new RegExp("^(?:(http|https|ftp):\\/\\/)?((?:[\\w-]+\\.)+[a-z0-9]+)((?:\\/[^/?#]*)+)?(\\?[^#]+)?(#.+)?$");
             //判断是否为链接
             if (regExp.test(copyText)) {
-                const not = new Notification({
-                    title: `收到来自 ${jsonData.derive} 的链接`,
-                    body: `点击打开?\nLink: ${copyText}`,
-                    icon: path.join(__dirname, "application.ico")
-                });
-                not.on('click', () => {
-                    setTimeout(() => {
-                        childProcess.exec(`start ${copyText}`)
-                    }, 0)
-                })
-                not.show()
+                app.notify(
+                    `收到来自 ${jsonData.derive} 的链接`,
+                    `点击打开?\nLink: ${copyText}`,
+                    () => {
+                        setTimeout(() => childProcess.exec(`start ${copyText}`))
+                    });
             } else {
                 cp.copy(copyText)
             }
@@ -56,29 +51,19 @@ socket.on('message', (buffer, info) => {
         }
         //被扫描到了！
         case 3: {
-            const not = new Notification({
-                title: `设备连接 (${jsonData.d.id})`,
-                body: `请求与您配对，点击接受匹配!`,
-                icon: path.join(__dirname, "application.ico")
-            });
-            not.on('click', () => {
-                sendPacket(3, info.address, info.port, "Me!").then(r => {
-                    console.log("send ok!")
-                })
-            })
-            not.show()
+            app.notify(
+                `设备连接 (${jsonData.d.id})`,
+                `请求与您配对，点击接受匹配!`,
+                () => {
+                    network.sendPacket(3, info.address, info.port, "Me!").then(() => console.log("send ok!"))
+                }
+            );
             break
         }
+        //匹配完成，手机端已传输的密钥
         case 4: {
             configJson.drivers[jsonData.derive] = jsonData.d
-            new Notification({
-                title: `设备连接 (${jsonData.d.id})`,
-                body: `手机端已同意，匹配成功!`,
-                icon: path.join(__dirname, "application.ico")
-            }).show()
-
-            console.log(configJson)
-
+            notification(`设备连接 (${jsonData.d.id})`, `手机端已同意，匹配成功!`)
             saveConfig()
             break
         }
@@ -88,24 +73,34 @@ socket.on('message', (buffer, info) => {
     }
 })
 
-//发送数据包
-async function sendPacket(type, address, port, data) {
-    const d = {
-        t: type, time: Date.now(), d: data, data: data, derive: `${os.hostname()}(${os.type()})`
+const network = {
+    //发送数据包
+    async sendPacket(type, address, port, data) {
+        const d = {
+            t: type, time: Date.now(), d: data, data: data, derive: `${os.hostname()}(${os.type()})`
+        }
+        socket.send(Buffer.from(JSON.stringify(d), 'utf-8').toString('base64'), port, address)
     }
-    socket.send(Buffer.from(JSON.stringify(d), 'utf-8').toString('base64'), port, address)
 }
 
 app.on('ready', () => {
+
+    //给app加通知方法
+    app.notify = function notify(title = "兮兮互联", message, callback) {
+        const notification = new Notification({
+            title: title, body: message, icon: path.join(__dirname, "application.ico")
+        });
+        notification.on('click', (e) => callback(e))
+        notification.show()
+    }
+
+
     //设置应用包名
     app.setAppUserModelId('cc.mcyx.catsummix')
     //尝试绑定！3333 端口
-    socket.bind(listenerPort, "0.0.0.0", (err) => {
-        console.log(`Bind ${listenerPort} Successfully`)
-        new Notification({
-            title: `兮兮`, body: `跨平台协同启动成功!`, icon: path.join(__dirname, "application.ico")
-        }).show()
-
+    socket.bind(listenerPort, "0.0.0.0", () => {
+        console.log(`listener in ${socket.address().address}:${socket.address().port} ! start successfully!`)
+        app.notify(undefined, `跨平台协同启动成功!`)
 
         //设置托盘图标
         const tray = new Tray(path.join(__dirname, "application.ico"));
@@ -122,7 +117,7 @@ app.on('ready', () => {
                     })
                 }
             }, {
-                label: `设置自启动服务`, type: 'normal', click: (e) => {
+                label: `设置自启动服务`, type: 'normal', click: () => {
                     const loginItemSettings = app.getLoginItemSettings();
                     //设置开机自启
                     app.setLoginItemSettings({
@@ -131,11 +126,11 @@ app.on('ready', () => {
                         path: process.execPath,
                         args: []
                     })
-                    notification(undefined, loginItemSettings.openAtLogin ? '已安装开机自启服务' : '已卸载开启自启服务')
+                    app.notify(undefined, loginItemSettings.openAtLogin ? '已安装开机自启服务' : '已卸载开启自启服务')
                 }
             }, {
                 label: '退出', type: 'normal', click: () => {
-                    notification(undefined, "程序已关闭!")
+                    app.notify(undefined, "程序已关闭!")
                     //销毁托盘
                     tray.destroy()
                     //结束进程
@@ -204,14 +199,6 @@ function saveConfig() {
             })
         }
     })
-}
-
-function notification(title = "兮兮互联", message, callback) {
-    const notification = new Notification({
-        title: title, body: message, icon: path.join(__dirname, "application.ico")
-    });
-    notification.on('click', (e) => callback(e))
-    notification.show()
 }
 
 //RC4解密模块
