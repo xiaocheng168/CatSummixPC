@@ -1,8 +1,6 @@
 <div align="center">
     <img width="200" height="200" src="application.ico" alt="Logo" style="margin: 0 auto">
-    <br>
-    <p style="font-size: 30px !important;font-weight: bold">CatSummixPC</p>
-    <br>
+    <h1>CatSummixPC</h1>
     <br>
 </div>
 
