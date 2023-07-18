@@ -30,4 +30,6 @@ npm run start
 
 ### Now download <a href="https://github.com/xiaocheng168/CatSummixPC/releases">releases</a> 🫲
 
+### Now download for Android <a href="https://github.com/xiaocheng168/CatSummix/releases">releases</a> 🫲
+
 #### kokomi ✈️!!!
