@@ -1,7 +1,6 @@
 console.log(`wait run CatSummix For Desktop.....`)
 const dgram = require('dgram');
 const {childProcess, exec} = require('child_process');
-const cp = require('copy-paste');
 const os = require("os");
 const socket = dgram.createSocket('udp4');
 const {app, dialog, Notification, Tray, Menu} = require('electron')
@@ -9,6 +8,8 @@ const path = require("path");
 const fs = require("fs");
 const crypto = require('crypto')
 const iconv = require('iconv-lite')
+const net = require("net");
+const child_process = require("child_process");
 
 
 const network = {
@@ -21,8 +22,8 @@ const network = {
     },
     startService() {
         //尝试绑定！3333 端口
-        socket.bind(listenerPort, "0.0.0.0", () => {
-            console.log(`listener in ${socket.address().address}:${socket.address().port} ! start successfully!`)
+        socket.bind(3333, "0.0.0.0", () => {
+            console.log(`udp listener in ${socket.address().address}:${socket.address().port} ! start successfully!`)
             app.notify(undefined, `跨平台协同启动成功!`)
         })
 
@@ -35,11 +36,11 @@ const network = {
     }
 }
 
-
 const config = {
     configDir: path.join(os.userInfo().homedir, "CatSummix"),
     configFile: "",
     configJson: {
+        dropFileSaveDir: "",
         drivers: {}
     },
     //读入配置文件
@@ -60,16 +61,27 @@ const config = {
             }
         })
     },
+    //获取drop文件路径
+    getDropFileDir() {
+        //判断这个存储路径是不是空的
+        if (this.configJson.dropFileSaveDir === undefined) {
+            //如果是空的将设置路径，并且保存
+            this.configJson.dropFileSaveDir = path.join(this.configDir, "DropFile")
+            //保存配置
+            this.saveConfig()
+            return this.configJson.dropFileSaveDir
+        } else return this.configJson.dropFileSaveDir
+    },
     init() {
         this.configFile = path.join(this.configDir, "config.json")
+        this.configJson.dropFileSaveDir = path.join(this.configDir, "DropFile")
+        if (!fs.existsSync(this.configDir)) fs.mkdirSync(this.configDir)
+
+        if (!fs.existsSync(this.configJson.dropFileSaveDir)) fs.mkdirSync(this.configJson.dropFileSaveDir)
         //判断文件是否存在
         if (!fs.existsSync(this.configFile)) {
-            //文件不存在，创建文件
-            const initConfig = {
-                drivers: {}
-            }
             // 初始化配置文件
-            fs.writeFile(this.configFile, JSON.stringify(initConfig), (err) => {
+            fs.writeFile(this.configFile, JSON.stringify(this.configJson), (err) => {
                 if (err) {
                     console.error(err)
                 } else {
@@ -79,8 +91,52 @@ const config = {
                 }
             })
         } else this.loadConfig()
+    },
+    openFolder(folderPath) {
+        if (!folderPath) {
+            console.error('Folder path is missing.');
+            return;
+        }
+
+        switch (os.platform()) {
+            case 'darwin': // macOS
+                exec(`open "${folderPath}"`, this.onExecComplete);
+                break;
+            case 'win32': // Windows
+                exec(`start "" "${folderPath}"`, this.onExecComplete);
+                break;
+            case 'linux': // Linux
+                const desktopEnv = process.env.XDG_CURRENT_DESKTOP || '';
+                switch (desktopEnv.toLowerCase()) {
+                    case 'gnome':
+                    case 'unity':
+                        exec(`nautilus "${folderPath}"`, this.onExecComplete);
+                        break;
+                    case 'cinnamon':
+                        exec(`nemo "${folderPath}"`, this.onExecComplete);
+                        break;
+                    case 'kde':
+                        exec(`dolphin "${folderPath}"`, this.onExecComplete);
+                        break;
+                    default:
+                        exec(`xdg-open "${folderPath}"`, this.onExecComplete);
+                        break;
+                }
+                break;
+            default:
+                console.error('Unsupported platform:', os.platform());
+                break;
+        }
+    },
+    onExecComplete(error) {
+        if (error) {
+            console.error('Error opening folder:', error);
+        } else {
+            console.log('Folder opened successfully!');
+        }
     }
 }
+
 
 const codeRc4 = {
     rc4Decrypt(key, data) {
@@ -103,35 +159,44 @@ const codeRc4 = {
 
 
 //Init Block
-
-//监听端口
-const listenerPort = 3333
 //判断接收时间
 let recTime
 socket.on('message', (buffer, info) => {
     const data = Buffer.from(buffer.toString(), 'base64').toString('utf-8');
-    const jsonData = JSON.parse(data);
-    jsonData.phone = undefined;
-    //收到数据包
-    console.log(`receive data ${data}`)
-    //计算收到的数据包时间 与上次收到的数据包时间计算 相减取绝对值 判断是否小于 100Ms
-    if (Math.abs(jsonData.time - recTime) <= 100) {
+    let jsonData
+    try {
+        jsonData = JSON.parse(data);
+    } catch (e) {
+        console.log(`error data ${data}`)
         return;
     }
+
+    //收到数据包
+    console.log(`receive data ${data}`)
+
+    let d //JsonData.d... 内数据
+    //判断是否为加密数据
+    if (jsonData.encode) {
+        //解密数据
+
+        //获取解密密钥
+        const key = config.configJson.drivers[jsonData.derive]
+        //设备key不存在将不处理
+        if (key === undefined || key === null) return;
+        //解密数据 获取解析出来的数据
+        d = codeRc4.decryptWithRC4(jsonData.d, key)
+
+    } else d = jsonData.d;
+
+    //计算收到的数据包时间 与上次收到的数据包时间计算 相减取绝对值 判断是否小于 100Ms
+    if (Math.abs(jsonData.time - recTime) <= 100) return;
     //记录本次接收的数据包时间
     recTime = jsonData.time
     let packetType = jsonData.t;
     switch (packetType) {
         //复制数据请求
         case 1: {
-            //获取解密密钥
-            const key = config.configJson.drivers[jsonData.derive]
-            //设备key不存在将不处理
-            if (key === undefined || key === null) return;
-            //解密数据 获取解析出来的数据
-            const copyText = codeRc4.decryptWithRC4(jsonData.d, key)
-            fs.writeFile("1.txt", copyText, () => {
-            })
+            let copyText = d
             //超链接表达式
             const regExp = new RegExp("^(?:(http|https|ftp):\\/\\/)?((?:[\\w-]+\\.)+[a-z0-9]+)((?:\\/[^/?#]*)+)?(\\?[^#]+)?(#.+)?$");
             //判断是否为链接
@@ -165,11 +230,72 @@ socket.on('message', (buffer, info) => {
             config.saveConfig()
             break
         }
+        case 5: {
+            //还原json格式数据
+            dropFiles = JSON.parse(d)
+            //清空缓存相关信息
+            tempBuffer = []
+            tempBufferSize = 0
+            // console.log(dropFiles)
+            /* network.sendPacket(5, info.address, info.port, {}).then(() => {
+             })*/
+            app.notify(`收到来自 ${jsonData.derive} 的个文件`, `文件名数量 ${dropFiles.count} 个\n大小 ${(dropFiles.size / 1024 / 1024).toFixed(2)} M\n点击接收`, () => {
+                network.sendPacket(5, info.address, info.port, {}).then(() => {
+                })
+            })
+            break
+        }
         default: {
             console.log(`invalid packet id ${packetType} data: ${data}`)
         }
     }
 })
+let dropFiles = {}
+let tempBuffer = []
+let tempBufferSize = 0
+
+const tcpServer = {
+    tcp: net.createServer((e) => {
+        e.on('data', (data) => {
+            //判断是否处于上传文件状态
+            if (dropFiles.size === undefined) return
+            //汇总所有byte数据
+            tempBuffer.push(data)
+            //累加接收到的buffer数据大小
+            tempBufferSize += data.length
+            //打包为buffer
+            // console.log(`${tempBufferSize}/${dropFiles.size}`)
+            //判断是否接收完毕 原理为收到的bytes 是否与 传过来的json数据匹配
+            if (tempBufferSize === dropFiles.size) {
+                let bufferData = Buffer.concat(tempBuffer)
+                //循环所有drop文件
+                for (let file of dropFiles.files) {
+                    //建立空文件
+                    let writeStream = fs.createWriteStream(path.join(config.getDropFileDir(), file.name));
+                    //写出数据
+                    writeStream.write(bufferData.slice(0, file.size))
+                    //关闭文件流
+                    writeStream.close()
+                    //从原bytes里删除这段byte数据
+                    bufferData = Buffer.concat([bufferData.slice(0, 0), bufferData.slice(file.size)])
+                }
+                //清空记录
+                dropFiles = {}
+                tempBufferSize = 0
+                config.openFolder(config.getDropFileDir())
+            }
+        })
+        e.on('error', (e) => {
+            console.error(e)
+            app.notify(undefined, `文件接收失败\n${e}`)
+        })
+    }),
+    start() {
+        this.tcp.listen(3333, () => {
+            console.log(`tcp listener in ${this.tcp.address().address}${this.tcp.address().port} ! start successfully!`)
+        })
+    }
+}
 
 app.on('ready', () => {
     //给app加通知方法
@@ -201,7 +327,7 @@ app.on('ready', () => {
             }
         }, {
             label: '打开配置文件', type: 'normal', click: () => {
-                childProcess.exec(config.configFile)
+                child_process.exec(config.configFile)
             }
         }
             , {
@@ -245,10 +371,11 @@ app.on('ready', () => {
 
     //设置托盘图标
     setTrayMenu()
-    //启动服务
+    //启动服务 Udp
     network.startService()
+    //启动服务 Tcp
+    tcpServer.start()
     //初始化配置项
     config.init()
 
 })
-
