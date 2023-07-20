@@ -1,6 +1,6 @@
 {
   "name": "catsummix",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "description": "PC connection phone tool",
   "main": "App.js",
   "scripts": {
