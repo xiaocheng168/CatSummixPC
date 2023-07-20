@@ -20,6 +20,13 @@ npm run pkgApp
 npm run start
 ~~~
 
+## There are functional wait.....
+
+    ❌ Copy to Phone 
+
+    ❌ Drop File to Phone
+
+
 ## Support Systems ⭐
 
     ✅ Windows 
