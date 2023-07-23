@@ -205,7 +205,7 @@ socket.on('message', (buffer, info) => {
                     `收到来自 ${jsonData.derive} 的链接`,
                     `点击打开?\nLink: ${copyText}`,
                     () => {
-                        setTimeout(() => childProcess.exec(`start ${copyText}`))
+                        setTimeout(() => child_process.exec(`start ${regExp.exec(copyText).input}`))
                     });
             } else {
                 exec("clip").stdin.end(iconv.encode(copyText, "gbk"));
